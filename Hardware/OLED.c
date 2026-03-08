@@ -592,7 +592,7 @@ void OLED_ShowChar(int16_t X, int16_t Y, char Char, uint8_t FontSize)
   *           当字体大小为OLED_6X8时，中文字符以6*8点阵显示'?'
   * 说    明：调用此函数后，要想真正地呈现在屏幕上，还需调用更新函数
   */
-void OLED_ShowString(int16_t X, int16_t Y, char *String, uint8_t FontSize)
+ void OLED_ShowString(int16_t X, int16_t Y, char *String, uint8_t FontSize)
 {
 	uint16_t i = 0;
 	char SingleChar[5];

@@ -2,6 +2,6 @@
 #define __MOTOR_H
 
 void Motor_Init(void);
-void Motor_SetPWM(uint8_t n, int8_t PWM);
+void Motor_SetPWM(uint8_t n, int16_t PWM);
 
 #endif

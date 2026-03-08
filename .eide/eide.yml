@@ -98,6 +98,10 @@ virtualFolder:
         - path: Hardware/Serial.h
         - path: Hardware/BlueSerial.c
         - path: Hardware/BlueSerial.h
+        - path: Hardware/hc4051.c
+        - path: Hardware/hc4051.h
+        - path: Hardware/BUZZER.c
+        - path: Hardware/BUZZER.h
       folders: []
     - name: User
       files:
@@ -107,6 +111,8 @@ virtualFolder:
         - path: User/stm32f10x_it.h
         - path: User/PID.c
         - path: User/PID.h
+        - path: User/Handfile.h
+        - path: User/Handfile.c
       folders: []
 dependenceList: []
 outDir: build
