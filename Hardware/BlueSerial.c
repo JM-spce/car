@@ -1,9 +1,12 @@
 #include "stm32f10x.h"                  // Device header
 #include <stdio.h>
 #include <stdarg.h>
+#include "BlueSerial.h"
 
 char BlueSerial_RxPacket[100];
 uint8_t BlueSerial_RxFlag;
+
+BlueConnectState BlueConnectionState = BLUE_DISCONNECTED;
 
 void BlueSerial_Init(void)
 {
@@ -37,11 +40,13 @@ void BlueSerial_Init(void)
 	NVIC_InitTypeDef NVIC_InitStructure;
 	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_Init(&NVIC_InitStructure);
 	
 	USART_Cmd(USART2, ENABLE);
+
+	BlueConnectionState = BLUE_DISCONNECTED;
 }
 
 void BlueSerial_SendByte(uint8_t Byte)
@@ -89,14 +94,31 @@ void BlueSerial_SendNumber(uint32_t Number, uint8_t Length)
 
 void BlueSerial_Printf(char *format, ...)
 {
-	char String[100];
-	va_list arg;
-	va_start(arg, format);
-	vsprintf(String, format, arg);
-	va_end(arg);
-	BlueSerial_SendString(String);
+	if (BlueConnectionState == BLUE_CONNECTED)
+	{
+		char String[100];
+		va_list arg;
+		va_start(arg, format);
+		vsprintf(String, format, arg);
+		va_end(arg);
+		BlueSerial_SendString(String);
+	}
 }
 
+BlueConnectState BlueSerial_GetConnectionState(void)
+{
+	return BlueConnectionState;
+}
+
+void BlueSerial_SetConnected(void)
+{
+	BlueConnectionState = BLUE_CONNECTED;
+}
+
+void BlueSerial_SetDisconnected(void)
+{
+	BlueConnectionState = BLUE_DISCONNECTED;
+}
 void USART2_IRQHandler(void)
 {
 	static uint8_t RxState = 0;
@@ -109,6 +131,7 @@ void USART2_IRQHandler(void)
 		{
 			if (RxData == '[' && BlueSerial_RxFlag == 0)
 			{
+				BlueConnectionState = BLUE_CONNECTED;
 				RxState = 1;
 				pRxPacket = 0;
 			}

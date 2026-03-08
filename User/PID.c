@@ -10,12 +10,26 @@ void PID_Init(PID_t *p)
 	p->Error0 = 0;
 	p->Error1 = 0;
 	p->ErrorInt = 0;
+	
+	// 初始化死区参数
+	p->DeadZone = 0.0;
+	p->DeadZoneEnable = 0;
 }
 
 void PID_Update(PID_t *p)
 {
 	p->Error1 = p->Error0;
 	p->Error0 = p->Target - p->Actual;
+	
+	// 死区处理
+	if (p->DeadZoneEnable && fabs(p->Error0) <= p->DeadZone)
+	{
+		// 在死区内，不进行积分累积，输出为0
+		p->ErrorInt = 0;
+		p->Out = 0;
+		p->Actual1 = p->Actual;
+		return;
+	}
 	
 	if (p->Ki != 0)
 	{

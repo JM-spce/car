@@ -22,6 +22,10 @@ typedef struct {
 	float OutMin;
 	
 	float OutOffset;
+	
+	// 死区配置
+	float DeadZone;         // 死区范围（对称）
+	uint8_t DeadZoneEnable; // 死区使能标志
 } PID_t;
 
 void PID_Init(PID_t *p);

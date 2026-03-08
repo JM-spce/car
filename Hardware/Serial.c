@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-uint8_t Serial_RxData;
+char Serial_RxPacket[100];
 uint8_t Serial_RxFlag;
 
 void Serial_Init(void)
@@ -22,7 +22,7 @@ void Serial_Init(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 	
 	USART_InitTypeDef USART_InitStructure;
-	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_BaudRate = 115200;
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
 	USART_InitStructure.USART_Mode = USART_Mode_Tx | USART_Mode_Rx;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -113,17 +113,53 @@ uint8_t Serial_GetRxFlag(void)
 	return 0;
 }
 
-uint8_t Serial_GetRxData(void)
-{
-	return Serial_RxData;
-}
+// uint8_t Serial_GetRxData(void)
+// {
+// 	return Serial_RxData;
+// }
+
+// void USART1_IRQHandler(void)
+// {
+// 	if (USART_GetITStatus(USART1, USART_IT_RXNE) == SET)
+// 	{
+// 		Serial_RxData = USART_ReceiveData(USART1);
+// 		Serial_RxFlag = 1;
+// 		USART_ClearITPendingBit(USART1, USART_IT_RXNE);
+// 	}
+// }
 
 void USART1_IRQHandler(void)
 {
+	static uint8_t RxState = 0;
+	static uint8_t pRxPacket = 0;
 	if (USART_GetITStatus(USART1, USART_IT_RXNE) == SET)
 	{
-		Serial_RxData = USART_ReceiveData(USART1);
-		Serial_RxFlag = 1;
+		uint8_t RxData = USART_ReceiveData(USART1);
+		
+		if (RxState == 0)
+		{
+			if (RxData == '[' && Serial_RxFlag == 0)
+			{
+				Serial_RxFlag = 1;
+				RxState = 1;
+				pRxPacket = 0;
+			}
+		}
+		else if (RxState == 1)
+		{
+			if (RxData == ']')
+			{
+				RxState = 0;
+				Serial_RxPacket[pRxPacket] = '\0';
+				Serial_RxFlag = 1;
+			}
+			else
+			{
+				Serial_RxPacket[pRxPacket] = RxData;
+				pRxPacket ++;
+			}
+		}
+		
 		USART_ClearITPendingBit(USART1, USART_IT_RXNE);
 	}
 }

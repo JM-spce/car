@@ -14,8 +14,11 @@ void Key_Init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_4;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
 }
 
 uint8_t Key_GetNum(void)
@@ -44,7 +47,7 @@ uint8_t Key_GetState(void)
 	{
 		return 3;
 	}
-	if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_4) == 0)
+	if (GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_15) == 0)
 	{
 		return 4;
 	}
