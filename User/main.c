@@ -58,7 +58,7 @@ void TIM1_UP_IRQHandler(void)
 
             MPU6050_GetData(&AX, &AY, &AZ, &GX, &GY, &GZ);
             HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD);
-            line_pos = Calculate_Line_Position();
+            Calculate_Line_Position(&line_pos, &valid_sensor_count);
 
             // 陀螺仪数据低通滤波 0.57
             gyro_z_filtered = alpha * (GZ / 16.4 - 0.58) + (1 - alpha) * gyro_z_filtered;
@@ -91,7 +91,7 @@ void TIM1_UP_IRQHandler(void)
                 PID_Update(&SpeedPID, AveSpeed);
 
                 // 转向环PID控制 - 使用角度误差
-                PID_Update(&TurnPID, Angle);
+                PID_UpdateAngle(&TurnPID, Angle);
 
                 // 结合速度环和转向环输出
 

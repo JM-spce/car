@@ -16,6 +16,7 @@ uint16_t adc_values[8] = {0};      // ADC 值（初始 0）
 uint8_t binary_values[8] = {0};    // 二值化值（初始 0）
 int16_t LeftPWM = 0, RightPWM = 0; // 电机 PWM（初始 0）
 int16_t line_pos = 0.0f;
+uint8_t valid_sensor_count = 0;
 const uint8_t LED_BUZZER_Count = 100;
 uint8_t LED_BUZZER_falg = 0; // LED 灯和蜂鸣器  0关，1开，自增到100跳为0
 
@@ -247,78 +248,78 @@ void BlueSerial(void)
 
 void Key_action(void)
 {
-    //状态机
-    // switch (KeyNum)
-    // {
-    // case 1:
-    //     TaskMode = MODE_TASK1_AB;
-    //     KeyNum = 0;
-    //     break;
-    // case 2:
-    //     TaskMode = MODE_TASK2_ABCDA;
-    //     KeyNum = 0;
-    //     break;
-    // case 3:
-    //     TaskMode = MODE_TASK3_ACBDA;
-    //     KeyNum = 0;
-    //     break;
-    // case 4:
-    //     TaskMode = MODE_TASK4_4_ACBDA;
-    //     KeyNum = 0;
-    //     break;
-    // case 5:
-    //     TaskMode = MODE_IDLE;
-    //     KeyNum = 0;
-    //     break;
-    // default:
-    //     break;
-    // }
-
-    //TurnPID
+    // 状态机
     switch (KeyNum)
     {
     case 1:
-        TurnPID.Kp += 0.2f;
+        TaskMode = MODE_TASK1_AB;
         KeyNum = 0;
         break;
     case 2:
-        TurnPID.Kp -= 0.1f;
+        TaskMode = MODE_TASK2_ABCDA;
         KeyNum = 0;
         break;
     case 3:
-        TurnPID.Ki += 0.2f;
+        TaskMode = MODE_TASK3_ACBDA;
         KeyNum = 0;
         break;
     case 4:
-        TurnPID.Ki -= 0.1f;
+        TaskMode = MODE_TASK4_4_ACBDA;
         KeyNum = 0;
         break;
     case 5:
-        TurnPID.Kd += 0.2f;
-        KeyNum = 0;
-        break;
-    case 6:
-        TurnPID.Kd -= 1.0f;
-        KeyNum = 0;
-        break;
-    case 7:
-        temp = TurnPID.Target + 15;
-        PID_SetTarget(&TurnPID, temp);
-        KeyNum = 0;
-        break;
-    case 8:
-        TaskMode = MODE_Test;
-        // temp = TurnPID.Actual - 10;
-        // PID_SetTarget(&TurnPID, temp);
-        KeyNum = 0;
-        break;
-    case 9:
         TaskMode = MODE_IDLE;
         KeyNum = 0;
-
+        break;
     default:
         break;
     }
+
+    // //TurnPID
+    // switch (KeyNum)
+    // {
+    // case 1:
+    //     TurnPID.Kp += 0.2f;
+    //     KeyNum = 0;
+    //     break;
+    // case 2:
+    //     TurnPID.Kp -= 0.1f;
+    //     KeyNum = 0;
+    //     break;
+    // case 3:
+    //     TurnPID.Ki += 0.2f;
+    //     KeyNum = 0;
+    //     break;
+    // case 4:
+    //     TurnPID.Ki -= 0.1f;
+    //     KeyNum = 0;
+    //     break;
+    // case 5:
+    //     TurnPID.Kd += 0.2f;
+    //     KeyNum = 0;
+    //     break;
+    // case 6:
+    //     TurnPID.Kd -= 1.0f;
+    //     KeyNum = 0;
+    //     break;
+    // case 7:
+    //     temp = TurnPID.Target + 15;
+    //     PID_SetTarget(&TurnPID, temp);
+    //     KeyNum = 0;
+    //     break;
+    // case 8:
+    //     TaskMode = MODE_Test;
+    //     // temp = TurnPID.Actual - 10;
+    //     // PID_SetTarget(&TurnPID, temp);
+    //     KeyNum = 0;
+    //     break;
+    // case 9:
+    //     TaskMode = MODE_IDLE;
+    //     KeyNum = 0;
+
+    // default:
+    //     break;
+    // }
 }
 
 void Data_Update(void)
@@ -339,7 +340,7 @@ void Data_Update(void)
         OLED_Printf(0, 32, OLED_6X8, "T:%+05.1f", SpeedPID.Target);
         OLED_Printf(0, 40, OLED_6X8, "A:%+05.1f", AveSpeed);
         OLED_Printf(0, 48, OLED_6X8, "O:%+05.0f", SpeedPID.Out);
-        OLED_Printf(0, 56, OLED_6X8, "Ds:       Ang:%5.2f", Angle);
+        OLED_Printf(0, 56, OLED_6X8, "Ds:       A:%3.2f,%d", Angle, valid_sensor_count);
         OLED_ShowFloatNum(3 * 6, 56, CurrentDistance, 3, 1, OLED_6X8);
 
         OLED_Printf(50, 0, OLED_6X8, "Turn");
@@ -357,7 +358,6 @@ void Data_Update(void)
         OLED_ShowFloatNum(88, 40, line_pos, 3, 1, OLED_6X8);
         OLED_Printf(88, 48, OLED_6X8, "%+05.0f", CarPID.Out);
 
-        
         // for (uint8_t i = 0; i < 8; i++)
         //     OLED_ShowNum(i * 16, 0, binary_values[i], 1, OLED_6X8);
         // OLED_ShowSignedNum(0, 8, line_pos, 5, OLED_6X8);
@@ -391,7 +391,7 @@ void Data_Update(void)
 
         OLED_Update();
 
-        BlueSerial_Printf("%.2f,%.2f\n", Angle, TurnPID.Target);
+        BlueSerial_Printf("%.2f,%.2f,%.2f\n", Angle, TurnPID.Target, CurrentDistance);
 
         // BlueSerial_Printf("%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f\n",
         //                   SpeedPID.Target, TurnPID.Target,
@@ -403,26 +403,51 @@ void Data_Update(void)
 }
 
 // 计算加权线位置
-int16_t Calculate_Line_Position(void)
+
+void Calculate_Line_Position(int16_t *line_pos, uint8_t *valid_sensor)
 {
     int32_t weight_sum = 0;
-    uint8_t valid_sensor = 0;
-
-    // 统计有效传感器和总权重
-    for (uint8_t i = 0; i < 8; i++)
+    uint8_t valid_sensor_temp = 0;
+    
+    const uint8_t* binary_ptr = binary_values;
+    const int8_t* weight_ptr = sensor_weight;
+    const uint8_t* end_ptr = binary_values + 8;
+    
+    while (binary_ptr < end_ptr)
     {
-        if (binary_values[i] == 1)
+        if (*binary_ptr == 1)
         {
-            weight_sum += (int32_t)sensor_weight[i];
-            valid_sensor++;
+            weight_sum += (int32_t)(*weight_ptr);
+            valid_sensor_temp++;
         }
+        
+        binary_ptr++;
+        weight_ptr++;
     }
-
-    // 计算加权平均位置
-    if (valid_sensor == 0)
-        return 0; // 无有效传感器，返回中心
-    float avg_pos = (float)weight_sum / valid_sensor;
-    return (int16_t)avg_pos;
+    
+    if (valid_sensor_temp == 0)
+    {
+        if (line_pos != NULL)
+        {
+            *line_pos = 0;
+        }
+        if (valid_sensor != NULL)
+        {
+            *valid_sensor = 0;
+        }
+        return;
+    }
+    
+    float avg_pos = (float)weight_sum / valid_sensor_temp;
+    
+    if (line_pos != NULL)
+    {
+        *line_pos = (int16_t)avg_pos;
+    }
+    if (valid_sensor != NULL)
+    {
+        *valid_sensor = valid_sensor_temp;
+    }
 }
 
 // 计算当前行驶距离
@@ -467,7 +492,7 @@ void Task_1AB(void)
         TurnPID.Enabled = 1;
         CarPID.Enabled = 0;
 
-        if (CurrentDistance >= DIST_AB && line_pos != 0)
+        if (CurrentDistance >= DIST_AB && valid_sensor_count != 8)
         {
             CurrentDistance = 0;
             current_point = POINT_B;
@@ -486,7 +511,7 @@ void Task_2ABCDA(void)
     {
         CarPID.Enabled = 0;
 
-        if (CurrentDistance >= DIST_AB && line_pos != 0)
+        if (CurrentDistance >= DIST_AB && valid_sensor_count != 8)
         {
             CurrentDistance = 0;
             current_point = POINT_B;
@@ -499,8 +524,10 @@ void Task_2ABCDA(void)
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-        if (CurrentDistance >= DIST_BC && line_pos == 0)
+        if (CurrentDistance >= DIST_BC && valid_sensor_count == 8)
         {
+            PID_Clear(&TurnPID);
+            PID_SetTarget(&TurnPID, 180);
             SpeedPID.Enabled = 1;
             TurnPID.Enabled = 1;
             CarPID.Enabled = 0;
@@ -512,7 +539,7 @@ void Task_2ABCDA(void)
     }
 
     // C → D：直线无轨迹，陀螺仪
-    else if (current_point == POINT_C)
+    else if (current_point == POINT_C && valid_sensor_count != 8)
     {
         if (CurrentDistance >= DIST_AB)
         {
@@ -528,7 +555,7 @@ void Task_2ABCDA(void)
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-        if (CurrentDistance >= DIST_BC && line_pos != 0)
+        if (CurrentDistance >= DIST_BC && valid_sensor_count == 8)
         {
             CurrentDistance = 0;
             current_point = POINT_C;

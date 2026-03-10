@@ -219,11 +219,14 @@ void PID_Update(PID_t *pid, float Actual)
     if (pid == NULL) return;
     
 	// ==================== 使能判断 ====================
-	//如果失能则OUT输出恒为0
-	 if (!pid->Enabled)
+	if (!pid->Enabled)
     {
-        pid->Out = 0.0f;
-        return;
+        pid->Out = 0.0f;              // 输出置零
+        pid->ErrorInt = 0.0f;         // 清除积分累积
+        pid->Error[0] = 0.0f;         // 清除当前误差
+        pid->Error[1] = 0.0f;         // 清除上次误差
+        pid->Error[2] = 0.0f;         // 清除上上次误差
+        return;                       // 直接返回
     }
 
     // ==================== 更新当前实际值 ====================
@@ -325,4 +328,156 @@ void PID_Update(PID_t *pid, float Actual)
     // 为下次计算准备误差数据
     pid->Error[2] = pid->Error[1];    // 上上次误差更新
     pid->Error[1] = pid->Error[0];    // 上次误差更新
+}
+
+/**
+ * @brief 角度 PID 核心计算函数 - 自动处理±180°边界跳变问题
+ * @param pid 指向 PID 结构体的指针
+ * @param Actual 当前实际角度值
+ * @note 此函数会将角度误差归一化到 [-180, 180] 范围，避免边界跳变
+ */
+void PID_UpdateAngle(PID_t *pid, float Actual)
+{
+    // 安全检查
+    if (pid == NULL) return;
+    
+	// ==================== 使能判断 ====================
+	if (!pid->Enabled)
+    {
+        pid->Out = 0.0f;              // 输出置零
+        pid->ErrorInt = 0.0f;         // 清除积分累积
+        pid->Error[0] = 0.0f;         // 清除当前误差
+        pid->Error[1] = 0.0f;         // 清除上次误差
+        pid->Error[2] = 0.0f;         // 清除上上次误差
+        return;                       // 直接返回
+    }
+
+    // ==================== 更新当前实际值 ====================
+    pid->Actual = Actual;
+    
+    // ==================== 计算当前误差 ====================
+    pid->Error[0] = pid->Target - pid->Actual;
+    
+    // ==================== 角度误差归一化（关键！）====================
+    // 将误差归一化到 [-180, 180] 范围
+    while (pid->Error[0] > 180.0f)
+    {
+        pid->Error[0] -= 360.0f;
+    }
+    while (pid->Error[0] < -180.0f)
+    {
+        pid->Error[0] += 360.0f;
+    }
+    
+    // ==================== 死区处理 ====================
+    if (pid->DeadZoneEn && fabs(pid->Error[0]) <= pid->DeadZone)
+    {
+        pid->Out = 0.0f;
+        pid->ErrorInt = 0.0f;
+        pid->Error[2] = pid->Error[1];
+        pid->Error[1] = pid->Error[0];
+        return;
+    }
+    
+    // ==================== 根据不同模式计算 PID 输出 ====================
+    switch (pid->Mode)
+    {
+        case PID_POSITION:
+        {
+            if (pid->IntegralSepEn && fabs(pid->Error[0]) > pid->IntegralSepThres)
+            {
+                pid->ErrorInt += 0.0f;
+            }
+            else
+            {
+                pid->ErrorInt += pid->Error[0];
+            }
+            
+            if (pid->ErrorInt > pid->IntegralMax)
+            {
+                pid->ErrorInt = pid->IntegralMax;
+            }
+            else if (pid->ErrorInt < pid->IntegralMin)
+            {
+                pid->ErrorInt = pid->IntegralMin;
+            }
+            
+            pid->ErrorDer = pid->Error[0] - pid->Error[1];
+            
+            pid->Out = pid->Kp * pid->Error[0] + pid->Ki * pid->ErrorInt + pid->Kd * pid->ErrorDer;
+            
+            if (pid->Out > pid->OutMax)
+            {
+                pid->Out = pid->OutMax;
+            }
+            else if (pid->Out < pid->OutMin)
+            {
+                pid->Out = pid->OutMin;
+            }
+            
+            pid->Error[2] = pid->Error[1];
+            pid->Error[1] = pid->Error[0];
+            break;
+        }
+        
+        case PID_INCREMENTAL:
+        {
+            float DeltaOut = pid->Kp * (pid->Error[0] - pid->Error[1]) 
+                           + pid->Ki * pid->Error[0] 
+                           + pid->Kd * (pid->Error[0] - 2 * pid->Error[1] + pid->Error[2]);
+            
+            pid->Out += DeltaOut;
+            
+            if (pid->Out > pid->OutMax)
+            {
+                pid->Out = pid->OutMax;
+            }
+            else if (pid->Out < pid->OutMin)
+            {
+                pid->Out = pid->OutMin;
+            }
+            
+            pid->Error[2] = pid->Error[1];
+            pid->Error[1] = pid->Error[0];
+            break;
+        }
+        
+        case PID_DERIVATIVE_ON_MEASUREMENT:
+        {
+            if (pid->IntegralSepEn && fabs(pid->Error[0]) > pid->IntegralSepThres)
+            {
+                pid->ErrorInt += 0.0f;
+            }
+            else
+            {
+                pid->ErrorInt += pid->Error[0];
+            }
+            
+            if (pid->ErrorInt > pid->IntegralMax)
+            {
+                pid->ErrorInt = pid->IntegralMax;
+            }
+            else if (pid->ErrorInt < pid->IntegralMin)
+            {
+                pid->ErrorInt = pid->IntegralMin;
+            }
+            
+            pid->ErrorDer = pid->Actual - pid->Error[1];
+            
+            pid->Out = pid->Kp * pid->Error[0] + pid->Ki * pid->ErrorInt - pid->Kd * pid->ErrorDer;
+            
+            if (pid->Out > pid->OutMax)
+            {
+                pid->Out = pid->OutMax;
+            }
+            else if (pid->Out < pid->OutMin)
+            {
+                pid->Out = pid->OutMin;
+            }
+            
+            pid->Error[2] = pid->Error[1];
+            pid->Error[1] = pid->Actual;
+            break;
+        }
+    }
 }

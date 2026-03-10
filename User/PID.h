@@ -148,6 +148,7 @@ void PID_SetTarget(PID_t *pid, float Target);
  * @note 这是PID控制的核心函数，每次调用完成一次PID计算
  */
 void PID_Update(PID_t *pid, float Actual);
+void PID_UpdateAngle(PID_t *pid, float Actual);
 
 /**
  * @brief 清空PID状态
