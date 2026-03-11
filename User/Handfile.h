@@ -45,11 +45,10 @@ typedef enum {
 #define DEAD_ZONE      1.0f // PID 死区（避免小幅震荡）
 
 #define DIST_AB        90.0f  // A→B 直线距离
-#define DIST_BC        115.0f // B→C 圆弧距离
+#define DIST_BC        120.0f // B→C 圆弧距离
 #define DIST_CD        90.0f // C→D 直线距离
-#define DIST_DA        115.0f // D→A 圆弧距离
+#define DIST_DA        120.0f // D→A 圆弧距离
 #define DIST_AC        128.0f // A→C 直线
-#define Angle_AC       30.0f  // A→C 斜线
 
 typedef enum {
     POINT_A = 0,
@@ -72,6 +71,7 @@ extern uint8_t binary_values[8];
 extern int16_t LeftPWM, RightPWM;
 extern int16_t line_pos;
 extern uint8_t valid_sensor_count;
+extern int8_t line_flag;
 extern int16_t AX, AY, AZ, GX, GY, GZ;
 extern int16_t LeftEncoder, RightEncoder;
 extern float LeftSpeed, RightSpeed;
@@ -85,8 +85,6 @@ extern PID_t TurnPID;
 extern PID_t CarPID;
 extern CarTaskMode TaskMode;
 
-extern uint16_t BASE_PWM; // 基础速度（0-99）
-
 // ====================== 函数声明 ======================
 
 void Init(void);
@@ -99,6 +97,7 @@ void Angle_Normalize(void);
 void Angle_Reset(void);
 void Distance_Update(void);
 void Calculate_Line_Position(int16_t *line_pos, uint8_t *valid_sensor);
+void Update_Sensor_Status(void);
 
 void Task_Idle(void);
 void Task_1AB(void);

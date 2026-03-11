@@ -15,8 +15,13 @@ uint8_t updata_count = 0;          // 显示更新计数器
 uint16_t adc_values[8] = {0};      // ADC 值（初始 0）
 uint8_t binary_values[8] = {0};    // 二值化值（初始 0）
 int16_t LeftPWM = 0, RightPWM = 0; // 电机 PWM（初始 0）
+
 int16_t line_pos = 0.0f;
 uint8_t valid_sensor_count = 0;
+uint8_t count_8_consecutive = 0; // 连续检测到 8 的计数器
+uint8_t is_valid_8_detected = 0; // 连续三次为 8 的标志位
+int8_t line_flag = 0;           // 0:正常循迹,1:关闭右四路,-1关闭左四路
+
 const uint8_t LED_BUZZER_Count = 100;
 uint8_t LED_BUZZER_falg = 0; // LED 灯和蜂鸣器  0关，1开，自增到100跳为0
 
@@ -35,28 +40,26 @@ float gyro_z_filtered = 0; // 滤波后的 GZ 陀螺仪数据
 
 float TotalDistance = 0.0f;   // 总行驶距离（厘米）
 float CurrentDistance = 0.0f; // 当前段行驶距离（厘米）
-float WheelRadius = 2.4f;     // 轮子半径（厘米），根据实际情况调整
-
-uint16_t BASE_PWM = 300;
+float WheelRadius = 2.4f;     // 轮子半径（厘米）
 
 PID_t SpeedPID = {
     .Target = 40,
     .Kp = 20,
-    .Ki = 0.5,
-    .Kd = 0,
+    .Ki = 0.6,
+    .Kd = 0.05,
     .OutMax = 1000,
     .OutMin = -1000,
     .IntegralMax = 1500,
     .IntegralMin = -1500,
-    .DeadZone = 2.0,
+    .DeadZone = 0.5,
 
     .Mode = PID_INCREMENTAL, // 增量式
     .Enabled = 1};
 
 PID_t TurnPID = {
-    .Kp = 18,
-    .Ki = 0.2f,
-    .Kd = 0.2f,
+    .Kp = 5,
+    .Ki = 0.0f,
+    .Kd = 0.15f,
     .OutMax = 1000,
     .OutMin = -1000,
     .IntegralMax = 1000,
@@ -66,8 +69,8 @@ PID_t TurnPID = {
     .Mode = PID_DERIVATIVE_ON_MEASUREMENT, // 微分先行（抗干扰）
     .Enabled = 1};
 
-PID_t CarPID = {
-    .Kp = 30.0f,    // 比例系数（实测稳定值）
+PID_t CarPID = {    // 40,45,50
+    .Kp = 50.0f,    // 比例系数
     .Ki = 0.0f,     // 关闭积分（避免饱和）
     .Kd = 2.0f,     // 微分系数（抑制超调）
     .Target = 0.0f, // 目标位置（传感器中心）
@@ -248,78 +251,82 @@ void BlueSerial(void)
 
 void Key_action(void)
 {
-    // 状态机
-    switch (KeyNum)
-    {
-    case 1:
-        TaskMode = MODE_TASK1_AB;
-        KeyNum = 0;
-        break;
-    case 2:
-        TaskMode = MODE_TASK2_ABCDA;
-        KeyNum = 0;
-        break;
-    case 3:
-        TaskMode = MODE_TASK3_ACBDA;
-        KeyNum = 0;
-        break;
-    case 4:
-        TaskMode = MODE_TASK4_4_ACBDA;
-        KeyNum = 0;
-        break;
-    case 5:
-        TaskMode = MODE_IDLE;
-        KeyNum = 0;
-        break;
-    default:
-        break;
-    }
-
-    // //TurnPID
+    // // 状态机
     // switch (KeyNum)
     // {
     // case 1:
-    //     TurnPID.Kp += 0.2f;
+    //     TaskMode = MODE_TASK1_AB;
     //     KeyNum = 0;
     //     break;
     // case 2:
-    //     TurnPID.Kp -= 0.1f;
+    //     TaskMode = MODE_TASK2_ABCDA;
     //     KeyNum = 0;
     //     break;
     // case 3:
-    //     TurnPID.Ki += 0.2f;
+    //     TaskMode = MODE_TASK3_ACBDA;
     //     KeyNum = 0;
     //     break;
     // case 4:
-    //     TurnPID.Ki -= 0.1f;
+    //     TaskMode = MODE_TASK4_4_ACBDA;
     //     KeyNum = 0;
     //     break;
     // case 5:
-    //     TurnPID.Kd += 0.2f;
+    //     TaskMode = MODE_IDLE;
     //     KeyNum = 0;
     //     break;
     // case 6:
-    //     TurnPID.Kd -= 1.0f;
-    //     KeyNum = 0;
-    //     break;
-    // case 7:
-    //     temp = TurnPID.Target + 15;
-    //     PID_SetTarget(&TurnPID, temp);
-    //     KeyNum = 0;
-    //     break;
-    // case 8:
-    //     TaskMode = MODE_Test;
-    //     // temp = TurnPID.Actual - 10;
-    //     // PID_SetTarget(&TurnPID, temp);
-    //     KeyNum = 0;
-    //     break;
-    // case 9:
-    //     TaskMode = MODE_IDLE;
-    //     KeyNum = 0;
-
+    //     Angle_Reset();
     // default:
     //     break;
     // }
+
+    // TurnPID
+    switch (KeyNum)
+    {
+    case 1:
+        TurnPID.Kp += 0.2f;
+        KeyNum = 0;
+        break;
+    case 2:
+        TurnPID.Kp -= 0.1f;
+        KeyNum = 0;
+        break;
+    case 3:
+        TurnPID.Ki += 0.2f;
+        KeyNum = 0;
+        break;
+    case 4:
+        TurnPID.Ki -= 0.1f;
+        KeyNum = 0;
+        break;
+    case 5:
+        TurnPID.Kd += 0.2f;
+        KeyNum = 0;
+        break;
+    case 6:
+        TaskMode = MODE_TASK2_ABCDA;
+        // TurnPID.Kd -= 1.0f;
+        KeyNum = 0;
+        break;
+    case 7:
+        Angle_Reset();
+        // temp = TurnPID.Target + 15;
+        // PID_SetTarget(&TurnPID, temp);
+        KeyNum = 0;
+        break;
+    case 8:
+        TaskMode = MODE_TASK3_ACBDA;
+        // temp = TurnPID.Actual - 10;
+        // PID_SetTarget(&TurnPID, temp);
+        KeyNum = 0;
+        break;
+    case 9:
+        TaskMode = MODE_IDLE;
+        KeyNum = 0;
+
+    default:
+        break;
+    }
 }
 
 void Data_Update(void)
@@ -391,7 +398,7 @@ void Data_Update(void)
 
         OLED_Update();
 
-        BlueSerial_Printf("%.2f,%.2f,%.2f\n", Angle, TurnPID.Target, CurrentDistance);
+        BlueSerial_Printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", valid_sensor_count,SpeedPID.Actual, SpeedPID.Target, Angle, TurnPID.Target, CurrentDistance);
 
         // BlueSerial_Printf("%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f\n",
         //                   SpeedPID.Target, TurnPID.Target,
@@ -402,51 +409,85 @@ void Data_Update(void)
     }
 }
 
-// 计算加权线位置
-
+// 计算加权线位置（复用line_flag屏蔽指定四路）
 void Calculate_Line_Position(int16_t *line_pos, uint8_t *valid_sensor)
 {
     int32_t weight_sum = 0;
     uint8_t valid_sensor_temp = 0;
-    
-    const uint8_t* binary_ptr = binary_values;
-    const int8_t* weight_ptr = sensor_weight;
-    const uint8_t* end_ptr = binary_values + 8;
-    
+
+    const uint8_t *binary_ptr = binary_values;
+    const int8_t *weight_ptr = sensor_weight;
+    const uint8_t *end_ptr = binary_values + 8;
+
+    uint8_t sensor_idx = 0; // 传感器索引（0-7）
     while (binary_ptr < end_ptr)
     {
         if (*binary_ptr == 1)
         {
+            // 根据line_flag屏蔽对应四路
+            // line_flag=-1：关闭左四路（0-3）
+            if (line_flag == -1 && sensor_idx > 4)
+            {
+                binary_ptr++;
+                weight_ptr++;
+                sensor_idx++;
+                continue;
+            }
+            // line_flag=1：关闭右四路（4-7）
+            if (line_flag == 1 && sensor_idx <= 4)
+            {
+                binary_ptr++;
+                weight_ptr++;
+                sensor_idx++;
+                continue;
+            }
+            // 有效传感器：累加权重
             weight_sum += (int32_t)(*weight_ptr);
             valid_sensor_temp++;
         }
-        
+
         binary_ptr++;
         weight_ptr++;
+        sensor_idx++;
     }
-    
+
     if (valid_sensor_temp == 0)
     {
-        if (line_pos != NULL)
-        {
-            *line_pos = 0;
-        }
-        if (valid_sensor != NULL)
-        {
-            *valid_sensor = 0;
-        }
+        if (line_pos != NULL) *line_pos = 0;
+        if (valid_sensor != NULL) *valid_sensor = 0;
         return;
     }
-    
+
     float avg_pos = (float)weight_sum / valid_sensor_temp;
-    
+
     if (line_pos != NULL)
     {
+        // // 保留原有的line_flag逻辑，避免冲突
+        // if (line_flag == 1 && avg_pos < 0) *line_pos = 0;
+        // else if (line_flag == -1 && avg_pos > 0) *line_pos = 0;
+        // else 
         *line_pos = (int16_t)avg_pos;
     }
-    if (valid_sensor != NULL)
+    if (valid_sensor != NULL) *valid_sensor = valid_sensor_temp;
+}
+
+void Update_Sensor_Status(void)
+{
+    if (valid_sensor_count == 8)
     {
-        *valid_sensor = valid_sensor_temp;
+        if (count_8_consecutive < 3)
+        {
+            count_8_consecutive++;
+        }
+        if (count_8_consecutive >= 3)
+        {
+            is_valid_8_detected = 1;
+        }
+    }
+    else
+    {
+        count_8_consecutive = 0;
+        is_valid_8_detected = 0;
     }
 }
 
@@ -478,21 +519,24 @@ void Task_Idle(void)
     // 停止所有电机
     Motor_SetPWM(1, 0);
     Motor_SetPWM(2, 0);
+    current_point = POINT_A;
+    CurrentDistance = 0;
 
     // Angle_Reset();
     // 停止所有距离计数
     // Distance_Reset();
 }
-// 任务1：A → B 直线（无轨迹，陀螺仪直走）
+// 任务1：A → B 直线
 void Task_1AB(void)
 {
     if (current_point == POINT_A)
     {
+        line_flag = 0;
         SpeedPID.Enabled = 1;
         TurnPID.Enabled = 1;
         CarPID.Enabled = 0;
 
-        if (CurrentDistance >= DIST_AB && valid_sensor_count != 8)
+        if (CurrentDistance >= DIST_AB && is_valid_8_detected == 0)
         {
             CurrentDistance = 0;
             current_point = POINT_B;
@@ -509,9 +553,11 @@ void Task_2ABCDA(void)
     // A → B：直线无轨迹，陀螺仪
     if (current_point == POINT_A)
     {
+        SpeedPID.Enabled = 1;
+        TurnPID.Enabled = 1;
         CarPID.Enabled = 0;
 
-        if (CurrentDistance >= DIST_AB && valid_sensor_count != 8)
+        if (CurrentDistance >= DIST_AB && is_valid_8_detected == 0)
         {
             CurrentDistance = 0;
             current_point = POINT_B;
@@ -524,10 +570,10 @@ void Task_2ABCDA(void)
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-        if (CurrentDistance >= DIST_BC && valid_sensor_count == 8)
+        if (CurrentDistance >= DIST_BC && is_valid_8_detected == 1)
         {
             PID_Clear(&TurnPID);
-            PID_SetTarget(&TurnPID, 180);
+            PID_SetTarget(&TurnPID, -180);
             SpeedPID.Enabled = 1;
             TurnPID.Enabled = 1;
             CarPID.Enabled = 0;
@@ -539,7 +585,7 @@ void Task_2ABCDA(void)
     }
 
     // C → D：直线无轨迹，陀螺仪
-    else if (current_point == POINT_C && valid_sensor_count != 8)
+    else if (current_point == POINT_C && is_valid_8_detected == 0)
     {
         if (CurrentDistance >= DIST_AB)
         {
@@ -555,11 +601,12 @@ void Task_2ABCDA(void)
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-        if (CurrentDistance >= DIST_BC && valid_sensor_count == 8)
+        if (CurrentDistance >= DIST_BC && is_valid_8_detected == 1)
         {
             CurrentDistance = 0;
-            current_point = POINT_C;
+            current_point = POINT_A;
             LED_BUZZER_falg = 1;
+            TaskMode = MODE_IDLE;
         }
     }
 }
@@ -568,59 +615,90 @@ void Task_2ABCDA(void)
 // A→C(直) → C→B(循迹半圆) → B→D(直) → D→A(循迹半圆)
 void Task_3ACBDA(void)
 {
-    // A → C：直线
+    // A → C：直线斜线入弯（关闭左四路，仅右四路识别）
     if (current_point == POINT_A)
     {
-        CarPID.Enabled = 0;
-        TurnPID.Target = Angle_AC;
+        line_flag = -1;  
+        PID_SetTarget(&TurnPID, -41.66f);//-38.66
+        SpeedPID.Enabled = 1;
         TurnPID.Enabled = 1;
+        CarPID.Enabled = 0;
 
-        if (CurrentDistance >= DIST_AC)
+        if (CurrentDistance >= DIST_AC && is_valid_8_detected == 0 )
         {
+            line_flag = 0;
             CurrentDistance = 0;
             current_point = POINT_C;
+            LED_BUZZER_falg = 1;
         }
     }
-
-    // C → B：循迹半圆
+    // C->B：灰度半圆循迹
     else if (current_point == POINT_C)
     {
+        line_flag = 0;
+        SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-
-        if (CurrentDistance >= DIST_BC)
+        
+        if (CurrentDistance >= DIST_BC && is_valid_8_detected == 1)
         {
+            // ========== 核心修改：出弯后角度+PID重置 ==========
+            // 1. 重置角度积分，以当前角度为基准0°
+            BaseAngle = Angle; // 保存出弯后的当前角度作为新基准
+            AngleIntegral = 0; // 清空角度积分
+            Angle = 0;         // 新基准下当前角度为0°
+            
+            // 2. 清空TurnPID的历史偏差、积分、微分状态（关键）
+            PID_Clear(&TurnPID);
+            
+            // 3. 计算归一化后的目标角度（基于新基准）
+            float target_angle = -149.34f - BaseAngle;//141.34
+            // 角度归一化到[-180, 180]，避免绕大圈
+            while (target_angle > 180.0f) target_angle -= 360.0f;
+            while (target_angle < -180.0f) target_angle += 360.0f;
+            
+            // 4. 设置归一化后的目标角度
+            PID_SetTarget(&TurnPID, target_angle);
+            
+            // ========== 原有逻辑保留 ==========
+            SpeedPID.Enabled = 1;
+            TurnPID.Enabled = 1;
+            CarPID.Enabled = 0;
+
             CurrentDistance = 0;
-            Angle_Reset();
             current_point = POINT_B;
+            LED_BUZZER_falg = 1;
         }
     }
 
     // B → D：直线无轨迹
     else if (current_point == POINT_B)
     {
-        CarPID.Enabled = 0;
-        TurnPID.Target = -Angle_AC;
-        TurnPID.Enabled = 1;
-
-        if (CurrentDistance >= DIST_AC)
+        line_flag = 1; // 关闭右四路（4-7）
+        if (CurrentDistance >= DIST_AC && is_valid_8_detected == 0)
         {
+            line_flag = 0; // 恢复正常
             CurrentDistance = 0;
             current_point = POINT_D;
+            LED_BUZZER_falg = 1;
         }
     }
 
-    // D → A：循迹半圆，回到A
+    // D → A：灰度半圆循迹（正常循迹）
     else if (current_point == POINT_D)
     {
+        line_flag = 0; // 强制恢复正常
+        SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-
-        if (CurrentDistance >= DIST_BC)
+        
+        if (CurrentDistance >= DIST_AC && is_valid_8_detected == 1)
         {
             CurrentDistance = 0;
-            Angle_Reset();
             current_point = POINT_A;
+            LED_BUZZER_falg = 1;
+            TaskMode = MODE_IDLE;
+            line_flag = 0; // 任务结束重置
         }
     }
 }

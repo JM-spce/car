@@ -59,22 +59,23 @@ void TIM1_UP_IRQHandler(void)
             MPU6050_GetData(&AX, &AY, &AZ, &GX, &GY, &GZ);
             HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD);
             Calculate_Line_Position(&line_pos, &valid_sensor_count);
+            Update_Sensor_Status();
 
-            // 陀螺仪数据低通滤波 0.57
-            gyro_z_filtered = alpha * (GZ / 16.4 - 0.58) + (1 - alpha) * gyro_z_filtered;
+            // 陀螺仪数据低通滤波 0.57  0.475
+            gyro_z_filtered = alpha * (GZ / 16.4 - 0.57) + (1 - alpha) * gyro_z_filtered;
 
             // 角度积分（度为单位）
-            AngleIntegral += gyro_z_filtered * dt;
+            Angle += gyro_z_filtered * dt;
 
             // 角度归一化
-            Angle_Normalize();
+            // Angle_Normalize();
 
             // 读取编码器数据
             LeftEncoder = Encoder_Get(1);
             RightEncoder = Encoder_Get(2);
 
             // 计算左右轮速度（转/秒）
-            LeftSpeed = LeftEncoder / 52.0 / dt; // 4(倍频)*13(线)个脉冲每转，0.05秒采样周期
+            LeftSpeed = LeftEncoder / 52.0 / dt;        // 4(倍频)*13(线)个脉冲每转，0.05秒采样周期
             RightSpeed = RightEncoder / 52.0 / dt;
 
             // 计算平均速度
@@ -91,7 +92,9 @@ void TIM1_UP_IRQHandler(void)
                 PID_Update(&SpeedPID, AveSpeed);
 
                 // 转向环PID控制 - 使用角度误差
-                PID_UpdateAngle(&TurnPID, Angle);
+                
+                PID_Update(&TurnPID, Angle);
+                // PID_UpdateAngle(&TurnPID, Angle);
 
                 // 结合速度环和转向环输出
 
