@@ -120,13 +120,6 @@ void HC4051_ReadBinaryChannels(uint16_t* adc_values, uint8_t* binary_values, uin
     
     for(uint8_t i = 0; i < 8; i++)
     {
-        if(adc_values[i] > threshold)
-        {
-            binary_values[i] = 1;
-        }
-        else
-        {
-            binary_values[i] = 0;
-        }
+        binary_values[i] = (adc_values[i] > threshold)? 1 : 0;
     }
 }

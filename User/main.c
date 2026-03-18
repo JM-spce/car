@@ -57,7 +57,7 @@ void TIM1_UP_IRQHandler(void)
             Count1 = 0;
 
             MPU6050_GetData(&AX, &AY, &AZ, &GX, &GY, &GZ);
-            HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD);
+            HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD);//大于阈值白色输出1
             Calculate_Line_Position(&line_pos, &valid_sensor_count);
             Update_Sensor_Status();
 
@@ -92,7 +92,6 @@ void TIM1_UP_IRQHandler(void)
                 PID_Update(&SpeedPID, AveSpeed);
 
                 // 转向环PID控制 - 使用角度误差
-                
                 PID_Update(&TurnPID, Angle);
                 // PID_UpdateAngle(&TurnPID, Angle);
 
@@ -102,8 +101,8 @@ void TIM1_UP_IRQHandler(void)
                 RightPWM = SpeedPID.Out + TurnPID.Out - CarPID.Out; // 右轮 = 速度输出 + 转向输出 + 循迹输出
 
                 // 限制PWM范围
-                // LeftPWM = fmin(fmax(LeftPWM, PWM_MIN), PWM_MAX);
-                // RightPWM = fmin(fmax(RightPWM, PWM_MIN), PWM_MAX);
+                LeftPWM = fmin(fmax(LeftPWM, PWM_MIN), PWM_MAX);
+                RightPWM = fmin(fmax(RightPWM, PWM_MIN), PWM_MAX);
 
                 Motor_SetPWM(1, LeftPWM);
                 Motor_SetPWM(2, RightPWM);
