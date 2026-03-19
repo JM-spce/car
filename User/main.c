@@ -43,7 +43,7 @@ void TIM1_UP_IRQHandler(void)
 {
     static uint16_t Count1;
     const float alpha = 0.1; // 低通滤波系数
-    const float dt = 0.01;   // 采样周期(100Hz)
+    const float dt = 0.008;   // 采样周期(100Hz)
 
     if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
     {
@@ -52,14 +52,15 @@ void TIM1_UP_IRQHandler(void)
         Key_Tick();
 
         Count1++;
-        if (Count1 >= 10)
+        if (Count1 >= 8)
         {
             Count1 = 0;
 
             MPU6050_GetData(&AX, &AY, &AZ, &GX, &GY, &GZ);
-            HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD);//大于阈值白色输出1
+            HC4051_ReadBinaryChannels(adc_values, binary_values, THRESHOLD); // 大于阈值白色输出1
             Calculate_Line_Position(&line_pos, &valid_sensor_count);
             Update_Sensor_Status();
+            Distance_Update(); // 更新行驶距离
 
             // 陀螺仪数据低通滤波 0.57  0.475
             gyro_z_filtered = alpha * (GZ / 16.4 - 0.57) + (1 - alpha) * gyro_z_filtered;
@@ -68,32 +69,31 @@ void TIM1_UP_IRQHandler(void)
             Angle += gyro_z_filtered * dt;
 
             // 角度归一化
-            // Angle_Normalize();
+            Angle = Angle_Normalize(Angle);
 
             // 读取编码器数据
             LeftEncoder = Encoder_Get(1);
             RightEncoder = Encoder_Get(2);
 
             // 计算左右轮速度（转/秒）
-            LeftSpeed = LeftEncoder / 52.0 / dt;        // 4(倍频)*13(线)个脉冲每转，0.05秒采样周期
+            LeftSpeed = LeftEncoder / 52.0 / dt; // 4(倍频)*13(线)个脉冲每转，0.05秒采样周期
             RightSpeed = RightEncoder / 52.0 / dt;
 
             // 计算平均速度
             AveSpeed = (LeftSpeed + RightSpeed) / 2.0;
 
-            // 更新行驶距离
-            Distance_Update();
-
             if (TaskMode != MODE_IDLE)
             {
                 // 灰度循迹
-                PID_Update(&CarPID, line_pos);
+                if (CarPID.Enabled)
+                    PID_Update(&CarPID, line_pos);
                 // 速度环PID控制
-                PID_Update(&SpeedPID, AveSpeed);
+                if (SpeedPID.Enabled)
+                    PID_Update(&SpeedPID, AveSpeed);
 
                 // 转向环PID控制 - 使用角度误差
-                PID_Update(&TurnPID, Angle);
-                // PID_UpdateAngle(&TurnPID, Angle);
+                if (TurnPID.Enabled)
+                    PID_UpdateAngle(&TurnPID, Angle);
 
                 // 结合速度环和转向环输出
 

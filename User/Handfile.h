@@ -97,7 +97,7 @@ void Key_action(void);
 void LED_BUZZER(void);
 void Data_Update(void);
 
-void Angle_Normalize(void);
+float Angle_Normalize(float Angle);
 void Angle_Reset(void);
 void Distance_Update(void);
 void Calculate_Line_Position(int16_t *line_pos, uint8_t *valid_sensor);
