@@ -47,8 +47,8 @@ float CurrentDistance = 0.0f; // 当前段行驶距离（厘米）
 float WheelRadius = 2.4f;     // 轮子半径（厘米）
 
 // 速度配置
-const float NORMAL_SPEED = 60.0f; // 正常行驶速度（入弯前的初始速度）     50
-const float TURN_SPEED = 50.0f;   // 弯道行驶速度                        50
+const float NORMAL_SPEED = 70.0f; // 正常行驶速度（入弯前的初始速度）     50
+const float TURN_SPEED = 45.0f;   // 弯道行驶速度                        50
 const float ACCEL_SPEED = 80.0f;  // 加速速度（出弯后）                  70
 
 float Current_Target_Speed = 60.0f;
@@ -368,39 +368,39 @@ void Smooth_Speed_Control(float distance_to_turn, uint8_t in_turn)
 
     if (in_turn)
     {
-        // 弯道中保持低速
+        // 弯道中：固定低速
         target_speed = TURN_SPEED;
     }
-    else if (distance_to_turn <= DECEL_DIST && distance_to_turn > 0)
+    else if (distance_to_turn > 0 && distance_to_turn <= DECEL_DIST)
     {
-        // 入弯前减速：使用余弦曲线平滑降速
+        // 入弯前：平滑减速到 TURN_SPEED
         float decel_ratio = distance_to_turn / DECEL_DIST;
-        // 余弦曲线：从 1 平滑降到 0，变化率在中间最大，两端最小
         float smooth_ratio = (1.0f + cosf(decel_ratio * 3.14159f)) / 2.0f;
         target_speed = TURN_SPEED + (NORMAL_SPEED - TURN_SPEED) * smooth_ratio;
     }
-    else if (distance_to_turn > 0 && distance_to_turn <= ACCEL_DIST)
+    else if (distance_to_turn < 0 && fabs(distance_to_turn) <= ACCEL_DIST)
     {
-        // 出弯后加速：使用正弦曲线平滑加速
-        float accel_ratio = distance_to_turn / ACCEL_DIST;
-        // 正弦曲线：从 0 平滑升到 1
+        // 出弯后：平滑加速到 ACCEL_SPEED
+        float accel_ratio = fabs(distance_to_turn) / ACCEL_DIST;
         float smooth_ratio = sinf(accel_ratio * 3.14159f / 2.0f);
         target_speed = TURN_SPEED + (ACCEL_SPEED - TURN_SPEED) * smooth_ratio;
         if (target_speed > ACCEL_SPEED)
             target_speed = ACCEL_SPEED;
     }
-    else
+    else if (distance_to_turn > DECEL_DIST)
     {
-        // 恢复正常速度
+        // 远离弯道：正常速度
+        target_speed = NORMAL_SPEED;
+    }
+    else // distance_to_turn < -ACCEL_DIST（出弯后很远）
+    {
         target_speed = NORMAL_SPEED;
     }
 
-    // 一阶低通滤波：让速度变化更平滑
-    // alpha 越小，滤波效果越强，速度变化越平缓
-    float alpha = 0.15f; // 平滑系数（0.1-0.3 之间较合适）
+    // 一阶低通滤波（保持平滑）
+    float alpha = 0.1f; // 更小的alpha，更平滑
     Smooth_Speed = Smooth_Speed * (1.0f - alpha) + target_speed * alpha;
 
-    // 更新 PID 目标速度
     PID_SetTarget(&SpeedPID, Smooth_Speed);
     Current_Target_Speed = target_speed;
 }
