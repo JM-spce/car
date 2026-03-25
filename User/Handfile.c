@@ -1,8 +1,8 @@
 #include "Handfile.h"
 
 // 传感器权重（0-7 路对应位置 -50~+50）
-// const int8_t sensor_weight[8] = {-40, -30, -15, -5, 5, 15, 30, 40};
-const int8_t sensor_weight[8] = {-50, -25, -15, -5, 5, 15, 25, 50};
+// const int8_t sensor_weight[8] = {-90, -60, -20, -8, 8, 20, 60, 90};
+const int8_t sensor_weight[8] = {-100, -80, -20, -8, 8, 20, 80, 100};
 
 CarTaskMode TaskMode = MODE_IDLE;
 
@@ -47,15 +47,18 @@ float CurrentDistance = 0.0f; // 当前段行驶距离（厘米）
 float WheelRadius = 2.4f;     // 轮子半径（厘米）
 
 // 速度配置
-const float NORMAL_SPEED = 50.0f; // 正常行驶速度（入弯前的初始速度）     50
+const float NORMAL_SPEED = 60.0f; // 正常行驶速度（入弯前的初始速度）     50
 const float TURN_SPEED = 40.0f;   // 弯道行驶速度                       50
-const float ACCEL_SPEED = 60.0f;  // 加速速度（出弯后）                  70
+const float ACCEL_SPEED = 60.0f;  // 加速速度（出弯后）                 70
+
+const float angle_1 = -42.66f;  //-38.66,43.66 ,-41.66f   1111
+const float angle_2 = -145.34f; // 141.34  149.34 -143.34   1111
 
 float Smooth_Speed = 00.0f;
 
 PID_t SpeedPID = {
     .Target = NORMAL_SPEED,
-    .Kp = 20,
+    .Kp = 25,
     .Ki = 0.6,
     .Kd = 0.15, // 0.05
     .OutMax = 1000,
@@ -80,9 +83,9 @@ PID_t TurnPID = {
     .Enabled = 1};
 
 PID_t CarPID = {    // 40,45,50
-    .Kp = 16.0f,    // 比例系数 50
+    .Kp = 45.0f,    // 比例系数 50 16
     .Ki = 0.0f,     // 关闭积分（避免饱和）
-    .Kd = 0.7f,     // 微分系数（抑制超调）0.4
+    .Kd = 1.0f,     // 微分系数（抑制超调）0.4//0.7
     .Target = 0.0f, // 目标位置（传感器中心）
     .OutMax = 500,
     .OutMin = -500,
@@ -226,6 +229,7 @@ void Key_action(void)
         break;
     case 6:
         Angle_Reset();
+        turn_task();
     default:
         break;
     }
@@ -240,40 +244,40 @@ void Data_Update(void)
 
         OLED_Clear();
         // 灰度
-         for (uint8_t i = 0; i < 8; i++)
-             OLED_ShowBinNum(i * 6, 0, binary_values[i], 1, OLED_6X8);
-         OLED_ShowNum(0, 8, adc_values[0], 5, OLED_6X8);
-         OLED_ShowNum(0, 16, adc_values[1], 5, OLED_6X8);
-         OLED_ShowNum(0, 24, adc_values[2], 5, OLED_6X8);
-         OLED_ShowNum(0, 32, adc_values[3], 5, OLED_6X8);
-         OLED_ShowNum(6*6, 8, adc_values[4], 5, OLED_6X8);
-         OLED_ShowNum(6*6, 16, adc_values[5], 5, OLED_6X8);
-         OLED_ShowNum(6*6, 24, adc_values[6], 5, OLED_6X8);
-         OLED_ShowNum(6*6, 32, adc_values[7], 5, OLED_6X8);
+        //  for (uint8_t i = 0; i < 8; i++)
+        //      OLED_ShowBinNum(i * 6, 0, binary_values[i], 1, OLED_6X8);
+        //  OLED_ShowNum(0, 8, adc_values[0], 5, OLED_6X8);
+        //  OLED_ShowNum(0, 16, adc_values[1], 5, OLED_6X8);
+        //  OLED_ShowNum(0, 24, adc_values[2], 5, OLED_6X8);
+        //  OLED_ShowNum(0, 32, adc_values[3], 5, OLED_6X8);
+        //  OLED_ShowNum(6*6, 8, adc_values[4], 5, OLED_6X8);
+        //  OLED_ShowNum(6*6, 16, adc_values[5], 5, OLED_6X8);
+        //  OLED_ShowNum(6*6, 24, adc_values[6], 5, OLED_6X8);
+        //  OLED_ShowNum(6*6, 32, adc_values[7], 5, OLED_6X8);
 
-        // OLED_Printf(0, 0, OLED_6X8, "  Speed");
-        // OLED_Printf(0, 8, OLED_6X8, "P:%05.2f", SpeedPID.Kp);
-        // OLED_Printf(0, 16, OLED_6X8, "I:%05.2f", SpeedPID.Ki);
-        // OLED_Printf(0, 24, OLED_6X8, "D:%05.2f", SpeedPID.Kd);
-        // OLED_Printf(0, 32, OLED_6X8, "T:%+05.1f", SpeedPID.Target);
-        // OLED_Printf(0, 40, OLED_6X8, "A:%+05.1f", AveSpeed);
-        // OLED_Printf(0, 48, OLED_6X8, "O:%+05.0f", SpeedPID.Out);
-        // OLED_Printf(0, 56, OLED_6X8, "Ds:       A:%3.2f,%d", Angle, valid_sensor_count);
-        // OLED_ShowFloatNum(3 * 6, 56, CurrentDistance, 3, 1, OLED_6X8);
-        // OLED_Printf(50, 0, OLED_6X8, "Turn");
-        // OLED_Printf(50, 8, OLED_6X8, "%05.2f", TurnPID.Kp);
-        // OLED_Printf(50, 16, OLED_6X8, "%05.2f", TurnPID.Ki);
-        // OLED_Printf(50, 24, OLED_6X8, "%05.2f", TurnPID.Kd);
-        // OLED_Printf(50, 32, OLED_6X8, "%+05.1f", TurnPID.Target);
-        // OLED_Printf(50, 40, OLED_6X8, "%+05.1f", Angle);
-        // OLED_Printf(50, 48, OLED_6X8, "%+05.0f", TurnPID.Out);
-        // OLED_Printf(88, 0, OLED_6X8, "car");
-        // OLED_Printf(88, 8, OLED_6X8, "%05.2f", CarPID.Kp);
-        // OLED_Printf(88, 16, OLED_6X8, "%05.2f", CarPID.Ki);
-        // OLED_Printf(88, 24, OLED_6X8, "%05.2f", CarPID.Kd);
-        // OLED_Printf(88, 32, OLED_6X8, "%+05.1f", CarPID.Target);
-        // OLED_ShowFloatNum(88, 40, line_pos, 3, 1, OLED_6X8);
-        // OLED_Printf(88, 48, OLED_6X8, "%+05.0f", CarPID.Out);
+        OLED_Printf(0, 0, OLED_6X8, "  Speed");
+        OLED_Printf(0, 8, OLED_6X8, "P:%05.2f", SpeedPID.Kp);
+        OLED_Printf(0, 16, OLED_6X8, "I:%05.2f", SpeedPID.Ki);
+        OLED_Printf(0, 24, OLED_6X8, "D:%05.2f", SpeedPID.Kd);
+        OLED_Printf(0, 32, OLED_6X8, "T:%+05.1f", SpeedPID.Target);
+        OLED_Printf(0, 40, OLED_6X8, "A:%+05.1f", AveSpeed);
+        OLED_Printf(0, 48, OLED_6X8, "O:%+05.0f", SpeedPID.Out);
+        OLED_Printf(0, 56, OLED_6X8, "Ds:       A:%3.2f,%d", Angle, valid_sensor_count);
+        OLED_ShowFloatNum(3 * 6, 56, CurrentDistance, 3, 1, OLED_6X8);
+        OLED_Printf(50, 0, OLED_6X8, "Turn");
+        OLED_Printf(50, 8, OLED_6X8, "%05.2f", TurnPID.Kp);
+        OLED_Printf(50, 16, OLED_6X8, "%05.2f", TurnPID.Ki);
+        OLED_Printf(50, 24, OLED_6X8, "%05.2f", TurnPID.Kd);
+        OLED_Printf(50, 32, OLED_6X8, "%+05.1f", TurnPID.Target);
+        OLED_Printf(50, 40, OLED_6X8, "%+05.1f", Angle);
+        OLED_Printf(50, 48, OLED_6X8, "%+05.0f", TurnPID.Out);
+        OLED_Printf(88, 0, OLED_6X8, "car");
+        OLED_Printf(88, 8, OLED_6X8, "%05.2f", CarPID.Kp);
+        OLED_Printf(88, 16, OLED_6X8, "%05.2f", CarPID.Ki);
+        OLED_Printf(88, 24, OLED_6X8, "%05.2f", CarPID.Kd);
+        OLED_Printf(88, 32, OLED_6X8, "%+05.1f", CarPID.Target);
+        OLED_ShowFloatNum(88, 40, line_pos, 3, 1, OLED_6X8);
+        OLED_Printf(88, 48, OLED_6X8, "%+05.0f", CarPID.Out);
 
         OLED_Update();
 
@@ -470,10 +474,6 @@ void Task_2ABCDA(void)
         TurnPID.Enabled = 1;
         CarPID.Enabled = 0;
 
-        // 入弯前丝滑减速控制
-        float distance_to_turn = DIST_AB + 10 - CurrentDistance;
-        Smooth_Speed_Control(distance_to_turn, 0);
-
         if (CurrentDistance >= DIST_AB && is_valid_8_detected == 0)
         {
             CurrentDistance = 0;
@@ -487,9 +487,6 @@ void Task_2ABCDA(void)
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
-
-        // 弯道中保持低速
-        Smooth_Speed_Control(0, 1);
 
         if (CurrentDistance >= DIST_BC && is_valid_8_detected == 1)
         {
@@ -508,15 +505,11 @@ void Task_2ABCDA(void)
     // C → D：直线无轨迹，陀螺仪
     else if (current_point == POINT_C)
     {
-        // 入弯前丝滑减速控制
-        float distance_to_turn = DIST_CD + 10 - CurrentDistance;
-        Smooth_Speed_Control(distance_to_turn, 0);
 
         if (CurrentDistance >= DIST_AB && is_valid_8_detected == 0)
         {
             CurrentDistance = 0;
-            // 弯道中保持低速
-            Smooth_Speed_Control(0, 1);
+
             current_point = POINT_D;
             LED_BUZZER_falg = 1;
         }
@@ -550,27 +543,23 @@ void Task_3ACBDA(void)
         SpeedPID.Enabled = 1;
         TurnPID.Enabled = 1;
         CarPID.Enabled = 0;
-        // PID_SetTarget(&TurnPID, -41.66f); //-38.66,43.66
         if (CurrentDistance < 1.0f) // 仅在起点执行一次
         {
             PID_Clear(&TurnPID);
             Angle_Reset();
-            PID_SetTarget(&TurnPID, -39.66f); 
+            PID_SetTarget(&TurnPID, angle_1);
         }
 
         // 入弯前丝滑减速控制
-        float distance_to_turn = DIST_AC + 8 - CurrentDistance;
+        float distance_to_turn = DIST_AC + 15 - CurrentDistance;
         Smooth_Speed_Control(distance_to_turn, 0);
 
         if (CurrentDistance >= DIST_AC && is_valid_8_detected == 0)
         {
-            SpeedPID.Enabled = 1;
-            CarPID.Enabled = 1;
-            TurnPID.Enabled = 0;
+
             // PID_SetTarget(&TurnPID, 0);
             CurrentDistance = 0;
-            // 弯道中保持低速
-            Smooth_Speed_Control(0, 1);
+
             current_point = POINT_C;
             LED_BUZZER_falg = 1;
         }
@@ -578,6 +567,11 @@ void Task_3ACBDA(void)
     // C->B：灰度半圆循迹
     else if (current_point == POINT_C)
     {
+        // 弯道中保持低速
+        Smooth_Speed_Control(0, 1);
+        SpeedPID.Enabled = 1;
+        CarPID.Enabled = 1;
+        TurnPID.Enabled = 0;
         // if (binary_values[3] == 0 || binary_values[4] == 0)
         //     line_flag = 0;
 
@@ -591,7 +585,7 @@ void Task_3ACBDA(void)
             // 2. 清空 TurnPID 的历史偏差、积分、微分状态（关键）
             PID_Clear(&TurnPID);
             // 3. 计算归一化后的目标角度（基于新基准）
-            float target_angle = -145.34f - BaseAngle; // 141.34  149.34
+            float target_angle = angle_2 - BaseAngle;
             // 角度归一化到 [-180, 180]，避免绕大圈
             while (target_angle > 180.0f)
                 target_angle -= 360.0f;
@@ -620,15 +614,15 @@ void Task_3ACBDA(void)
         line_flag = -1; // 关闭左四路
 
         // 入弯前丝滑减速控制
-        float distance_to_turn = DIST_BD + 8 - CurrentDistance;
+        float distance_to_turn = DIST_BD + 15 - CurrentDistance;
         Smooth_Speed_Control(distance_to_turn, 0);
 
         if (CurrentDistance >= DIST_BD && is_valid_8_detected == 0)
         {
             // PID_SetTarget(&TurnPID, BaseAngle);
             CurrentDistance = 0;
-            // 弯道中保持低速
-            Smooth_Speed_Control(0, 1);
+            // // 弯道中保持低速
+            // Smooth_Speed_Control(0, 1);
             current_point = POINT_D;
             LED_BUZZER_falg = 1;
         }
@@ -637,6 +631,8 @@ void Task_3ACBDA(void)
     // D → A：灰度半圆循迹（正常循迹）
     else if (current_point == POINT_D)
     {
+        // 弯道中保持低速
+        Smooth_Speed_Control(0, 1);
         SpeedPID.Enabled = 1;
         CarPID.Enabled = 1;
         TurnPID.Enabled = 0;
@@ -672,8 +668,9 @@ void Task_4Fig8_4Cycles(void)
         {
             current_point = POINT_A;
             CurrentDistance = 0;
-
             Angle_Reset();
+            PID_Clear(&TurnPID);
+            PID_SetTarget(&TurnPID, angle_1);
             TaskMode = MODE_TASK4_4_ACBDA;
         }
     }
@@ -689,6 +686,8 @@ void black_line_task(void)
 void turn_task(void)
 {
     SpeedPID.Enabled = 0;
-    TurnPID.Enabled = 1;
+    TurnPID.Enabled = 0;
     CarPID.Enabled = 0;
+    // PID_SetTarget(&TurnPID, 0.0f);
+    // PID_SetTarget(&SpeedPID, 0.0f);
 }
