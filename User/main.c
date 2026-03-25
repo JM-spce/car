@@ -63,7 +63,7 @@ void TIM1_UP_IRQHandler(void)
             Distance_Update(); // 更新行驶距离
 
             // 陀螺仪数据低通滤波 0.57  0.475
-            gyro_z_filtered = alpha * (GZ / 16.4 - 0.57) + (1 - alpha) * gyro_z_filtered;
+            gyro_z_filtered = alpha * (GZ / 16.4 +3.93) + (1 - alpha) * gyro_z_filtered;
 
             // 角度积分（度为单位）
             Angle += gyro_z_filtered * dt;

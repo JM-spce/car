@@ -40,19 +40,20 @@ typedef enum {
 
 #define PWM_MAX        800  // 电机最大 PWM
 #define PWM_MIN        200  // 电机最小 PWM（避免停转）
-#define THRESHOLD      620  // 灰度传感器阈值
+#define THRESHOLD      600  // 灰度传感器阈值
 #define CONTROL_PERIOD 1    // 控制周期（10ms）
 #define DEAD_ZONE      1.0f // PID 死区（避免小幅震荡）
 
 #define DIST_AB        90.0f  // A→B 直线距离
 #define DIST_BC        120.0f // B→C 圆弧距离
-#define DIST_CD        90.0f // C→D 直线距离
+#define DIST_CD        90.0f  // C→D 直线距离
 #define DIST_DA        120.0f // D→A 圆弧距离
-#define DIST_AC        128.0f // A→C 直线
+#define DIST_AC        120.0f // A→C 斜直线
+#define DIST_BD        120.0f // A→D 斜直线
 
 // 减速区距离（入弯前提前减速的距离）
-#define DECEL_DIST     20.0f  // 提前 20cm 减速
-#define ACCEL_DIST     10.0f  // 出弯后 10cm 加速
+#define DECEL_DIST 20.0f // 提前 20cm 减速
+#define ACCEL_DIST 10.0f // 出弯后 10cm 加速
 
 typedef enum {
     POINT_A = 0,
