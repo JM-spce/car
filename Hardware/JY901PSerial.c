@@ -1,14 +1,15 @@
 #include "stm32f10x.h"                  // Device header
 #include <stdio.h>
 #include <stdarg.h>
-#include "BlueSerial.h"
+#include "JY901PSerial.h"
+#include "JY901P.h"
 
-char BlueSerial_RxPacket[100];
-uint8_t BlueSerial_RxFlag;
+char JY901PSerial_RxPacket[100];
+uint8_t JY901PSerial_RxFlag;
 
-BlueConnectState BlueConnectionState = BLUE_DISCONNECTED;
+JY901PConnectState JY901PConnectionState = JY901P_DISCONNECTED;
 
-void BlueSerial_Init(void)
+void JY901PSerial_Init(void)
 {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -25,7 +26,7 @@ void BlueSerial_Init(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 	
 	USART_InitTypeDef USART_InitStructure;
-	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_BaudRate = 115200;
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
 	USART_InitStructure.USART_Mode = USART_Mode_Tx | USART_Mode_Rx;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -46,34 +47,34 @@ void BlueSerial_Init(void)
 	
 	USART_Cmd(USART2, ENABLE);
 
-	BlueConnectionState = BLUE_DISCONNECTED;
+	JY901PConnectionState = JY901P_DISCONNECTED;
 }
 
-void BlueSerial_SendByte(uint8_t Byte)
+void JY901PSerial_SendByte(uint8_t Byte)
 {
 	USART_SendData(USART2, Byte);
 	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
 }
 
-void BlueSerial_SendArray(uint8_t *Array, uint16_t Length)
+void JY901PSerial_SendArray(uint8_t *Array, uint16_t Length)
 {
 	uint16_t i;
 	for (i = 0; i < Length; i ++)
 	{
-		BlueSerial_SendByte(Array[i]);
+		JY901PSerial_SendByte(Array[i]);
 	}
 }
 
-void BlueSerial_SendString(char *String)
+void JY901PSerial_SendString(char *String)
 {
 	uint8_t i;
 	for (i = 0; String[i] != '\0'; i ++)
 	{
-		BlueSerial_SendByte(String[i]);
+		JY901PSerial_SendByte(String[i]);
 	}
 }
 
-uint32_t BlueSerial_Pow(uint32_t X, uint32_t Y)
+uint32_t JY901PSerial_Pow(uint32_t X, uint32_t Y)
 {
 	uint32_t Result = 1;
 	while (Y --)
@@ -83,74 +84,66 @@ uint32_t BlueSerial_Pow(uint32_t X, uint32_t Y)
 	return Result;
 }
 
-void BlueSerial_SendNumber(uint32_t Number, uint8_t Length)
+void JY901PSerial_SendNumber(uint32_t Number, uint8_t Length)
 {
 	uint8_t i;
 	for (i = 0; i < Length; i ++)
 	{
-		BlueSerial_SendByte(Number / BlueSerial_Pow(10, Length - i - 1) % 10 + '0');
+		JY901PSerial_SendByte(Number / JY901PSerial_Pow(10, Length - i - 1) % 10 + '0');
 	}
 }
 
-void BlueSerial_Printf(char *format, ...)
+void JY901PSerial_Printf(char *format, ...)
 {
-	if (BlueConnectionState == BLUE_CONNECTED)
+	if (JY901PConnectionState == JY901P_CONNECTED)
 	{
 		char String[100];
 		va_list arg;
 		va_start(arg, format);
 		vsprintf(String, format, arg);
 		va_end(arg);
-		BlueSerial_SendString(String);
+		JY901PSerial_SendString(String);
 	}
 }
 
-BlueConnectState BlueSerial_GetConnectionState(void)
+JY901PConnectState JY901PSerial_GetConnectionState(void)
 {
-	return BlueConnectionState;
+	return JY901PConnectionState;
 }
 
-void BlueSerial_SetConnected(void)
+void JY901PSerial_SetConnected(void)
 {
-	BlueConnectionState = BLUE_CONNECTED;
+	JY901PConnectionState = JY901P_CONNECTED;
 }
 
-void BlueSerial_SetDisconnected(void)
+void JY901PSerial_SetDisconnected(void)
 {
-	BlueConnectionState = BLUE_DISCONNECTED;
+	JY901PConnectionState = JY901P_DISCONNECTED;
 }
+
+void JY901P_Calibrate_ZAxis(void)
+{
+    uint8_t unlock_cmd[] = {0xFF, 0xAA, 0x69, 0x88, 0xB5};
+    uint8_t calibrate_cmd[] = {0xFF, 0xAA, 0x01, 0x04, 0x00};
+    uint8_t save_cmd[] = {0xFF, 0xAA, 0x00, 0x00, 0x00};
+    
+    JY901PSerial_SendArray(unlock_cmd, 5);
+    
+    for (volatile uint32_t i = 0; i < 100000; i++);
+    
+    JY901PSerial_SendArray(calibrate_cmd, 5);
+    
+    for (volatile uint32_t i = 0; i < 100000; i++);
+    
+    JY901PSerial_SendArray(save_cmd, 5);
+}
+
 void USART2_IRQHandler(void)
 {
-	static uint8_t RxState = 0;
-	static uint8_t pRxPacket = 0;
-	if (USART_GetITStatus(USART2, USART_IT_RXNE) == SET)
-	{
-		uint8_t RxData = USART_ReceiveData(USART2);
-		
-		if (RxState == 0)
-		{
-			if (RxData == '[' && BlueSerial_RxFlag == 0)
-			{
-				BlueConnectionState = BLUE_CONNECTED;
-				RxState = 1;
-				pRxPacket = 0;
-			}
-		}
-		else if (RxState == 1)
-		{
-			if (RxData == ']')
-			{
-				RxState = 0;
-				BlueSerial_RxPacket[pRxPacket] = '\0';
-				BlueSerial_RxFlag = 1;
-			}
-			else
-			{
-				BlueSerial_RxPacket[pRxPacket] = RxData;
-				pRxPacket ++;
-			}
-		}
-		
-		USART_ClearITPendingBit(USART2, USART_IT_RXNE);
-	}
+    if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)
+    {
+        uint8_t data = USART_ReceiveData(USART2);
+		JY901PConnectionState = JY901P_CONNECTED;
+        IMU_ParseData(data);
+    }
 }

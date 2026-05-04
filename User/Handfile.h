@@ -2,13 +2,11 @@
 #define __HANDFILE_H
 
 #include "stm32f10x.h"
-#include "BlueSerial.h"
 #include "Delay.h"
 #include "Encoder.h"
 #include "Key.h"
 #include "LED.h"
 #include "BUZZER.h"
-#include "MPU6050.h"
 #include "Motor.h"
 #include "OLED.h"
 #include "PID.h"
@@ -18,6 +16,8 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include "JY901P.h"
+#include "JY901PSerial.h"
 
 typedef enum {
     MODE_IDLE          = 0, // 待机模式（未选择）
@@ -40,7 +40,7 @@ typedef enum {
 
 #define PWM_MAX        800  // 电机最大 PWM
 #define PWM_MIN        200  // 电机最小 PWM（避免停转）
-#define THRESHOLD      450  // 灰度传感器阈值
+#define THRESHOLD      250  // 灰度传感器阈值
 #define CONTROL_PERIOD 1    // 控制周期（10ms）
 #define DEAD_ZONE      1.0f // PID 死区（避免小幅震荡）
 
@@ -93,12 +93,12 @@ extern CarTaskMode TaskMode;
 // ====================== 函数声明 ======================
 
 void Init(void);
-void BlueSerial(void);
+void Serial(void);
 void Key_action(void);
 void LED_BUZZER(void);
 void Data_Update(void);
 
-float Angle_Normalize(float Angle);
+// float Angle_Normalize(float Angle);
 void Angle_Reset(void);
 void Distance_Update(void);
 void Calculate_Line_Position(int16_t *line_pos, uint8_t *valid_sensor);
@@ -111,6 +111,5 @@ void Task_3ACBDA(void);
 void Task_4Fig8_4Cycles(void);
 
 void black_line_task(void);
-void turn_task(void);
 
 #endif

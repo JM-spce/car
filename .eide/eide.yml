@@ -83,9 +83,6 @@ virtualFolder:
         - path: Hardware/OLED_Data.h
         - path: Hardware/Key.c
         - path: Hardware/Key.h
-        - path: Hardware/MPU6050.c
-        - path: Hardware/MPU6050.h
-        - path: Hardware/MPU6050_Reg.h
         - path: Hardware/MyI2C.c
         - path: Hardware/MyI2C.h
         - path: Hardware/Motor.c
@@ -96,10 +93,12 @@ virtualFolder:
         - path: Hardware/Encoder.h
         - path: Hardware/Serial.c
         - path: Hardware/Serial.h
-        - path: Hardware/BlueSerial.c
-        - path: Hardware/BlueSerial.h
         - path: Hardware/hc4051.c
         - path: Hardware/hc4051.h
+        - path: Hardware/JY901P.c
+        - path: Hardware/JY901P.h
+        - path: Hardware/JY901PSerial.c
+        - path: Hardware/JY901PSerial.h
         - path: Hardware/BUZZER.c
         - path: Hardware/BUZZER.h
       folders: []
@@ -135,6 +134,8 @@ targets:
         - RTE/_Target 1
       libList: []
     excludeList: []
+    settings:
+      debugger: cortex-debug
     toolchain: AC5
     toolchainConfigMap:
       AC5:
@@ -249,6 +250,6 @@ targets:
       OpenOCD:
         baseAddr: "0x08000000"
         bin: ""
-        interface: stlink
+        interface: cmsis-dap
         target: stm32f1x
     uploader: OpenOCD
